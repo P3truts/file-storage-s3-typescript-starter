@@ -59,20 +59,18 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 
   const mediaType = imgData.type;
   const arrayBufer = await imgData.arrayBuffer();
+  const buffer = Buffer.from(arrayBufer);
+  const imgString = buffer.toString("base64");
+  const dataURL = `data:${mediaType};base64,${imgString}`;
 
   const videoMeta = getVideo(cfg.db, videoId);
   if (videoMeta?.userID !== userID) {
     throw new UserForbiddenError("Forbidden");
   }
 
-  videoThumbnails.set(videoId, { data: arrayBufer, mediaType: mediaType });
-
-  console.log("Video meta thumbnail URL before update: ", videoMeta.thumbnailURL);
-  const thumbnailURL = `http://localhost:8091/api/thumbnails/${videoId}`;
-  videoMeta.thumbnailURL = thumbnailURL;
+  videoMeta.thumbnailURL = dataURL;
 
   updateVideo(cfg.db, videoMeta);
 
-  console.log("Updated video meta: ", videoMeta);
   return respondWithJSON(200, videoMeta);
 }
