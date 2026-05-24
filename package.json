@@ -5,7 +5,8 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "^1.2.7",
-    "@types/jsonwebtoken": "^9.0.9"
+    "@types/jsonwebtoken": "^9.0.9",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "typescript": "^5"

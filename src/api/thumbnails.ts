@@ -1,9 +1,9 @@
 import { getBearerToken, validateJWT } from "../auth";
 import { respondWithJSON } from "./json";
-import { getVideo } from "../db/videos";
+import { getVideo, updateVideo, type Video } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
-import { BadRequestError, NotFoundError } from "./errors";
+import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 
 type Thumbnail = {
   data: ArrayBuffer;
@@ -47,7 +47,32 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 
   console.log("uploading thumbnail for video", videoId, "by user", userID);
 
-  // TODO: implement the upload here
+  const formData = await req.formData();
+  const imgData = formData.get("thumbnail");
+  if (!(imgData instanceof File)) {
+    throw new BadRequestError("Thumbnail file missing!");
+  }
+  const MAX_UPLOAD_SIZE = 10 << 20;
+  if (imgData.size > MAX_UPLOAD_SIZE) {
+    throw new BadRequestError("Image size larger than accepted 10MB limit");
+  }
 
-  return respondWithJSON(200, null);
+  const mediaType = imgData.type;
+  const arrayBufer = await imgData.arrayBuffer();
+
+  const videoMeta = getVideo(cfg.db, videoId);
+  if (videoMeta?.userID !== userID) {
+    throw new UserForbiddenError("Forbidden");
+  }
+
+  videoThumbnails.set(videoId, { data: arrayBufer, mediaType: mediaType });
+
+  console.log("Video meta thumbnail URL before update: ", videoMeta.thumbnailURL);
+  const thumbnailURL = `http://localhost:8091/api/thumbnails/${videoId}`;
+  videoMeta.thumbnailURL = thumbnailURL;
+
+  updateVideo(cfg.db, videoMeta);
+
+  console.log("Updated video meta: ", videoMeta);
+  return respondWithJSON(200, videoMeta);
 }
