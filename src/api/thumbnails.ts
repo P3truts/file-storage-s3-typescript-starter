@@ -4,6 +4,8 @@ import { getVideo, updateVideo, type Video } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
+import path from "path";
+import { randomBytes } from "crypto";
 
 type Thumbnail = {
   data: ArrayBuffer;
@@ -42,6 +44,9 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
     throw new BadRequestError("Invalid video ID");
   }
 
+  const buf = randomBytes(256);
+  const fileName = buf.toString("base64");
+
   const token = getBearerToken(req.headers);
   const userID = validateJWT(token, cfg.jwtSecret);
 
@@ -58,17 +63,24 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   }
 
   const mediaType = imgData.type;
+  if (mediaType !== "image/jpeg" && mediaType !== "image/png") {
+    throw new BadRequestError("Only JPEG or PNG format allowed");
+  }
+
   const arrayBufer = await imgData.arrayBuffer();
-  const buffer = Buffer.from(arrayBufer);
-  const imgString = buffer.toString("base64");
-  const dataURL = `data:${mediaType};base64,${imgString}`;
+  const fileExtension = mediaType.replace("image/", '');
+  const videoFile = `${cfg.assetsRoot}/${fileName}.${fileExtension}`;
+  const thumbnailPath = path.join(process.cwd(), videoFile);
+  await Bun.write(thumbnailPath, arrayBufer);
 
   const videoMeta = getVideo(cfg.db, videoId);
   if (videoMeta?.userID !== userID) {
     throw new UserForbiddenError("Forbidden");
   }
 
-  videoMeta.thumbnailURL = dataURL;
+  const thumbnailURL = `http://localhost:${cfg.port}/${videoFile}`;
+  console.log("ThumbnailURL: ", thumbnailURL);
+  videoMeta.thumbnailURL = thumbnailURL;
 
   updateVideo(cfg.db, videoMeta);
 
