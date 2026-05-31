@@ -63,15 +63,14 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     type: mediaType,
   });
 
-  // const videoURL = `https://tubely-909090.s3.eu-north-1.amazonaws.com/${prefixedKey}`;
-  // console.log("VideoURL: ", videoURL);
-  videoMeta.videoURL = prefixedKey;
+  const videoURL = `https://${cfg.s3CfDistribution}/${prefixedKey}`;
+  console.log("VideoURL: ", videoURL);
+  videoMeta.videoURL = videoURL;
 
   updateVideo(cfg.db, videoMeta);
   await tempFile.delete();
 
-  const presignedVideo = await dbVideoToSignedVideo(cfg, videoMeta);
-  return respondWithJSON(200, presignedVideo);
+  return respondWithJSON(200, videoMeta);
 }
 
 async function getVideoAspectRatio(filePath: string) {
@@ -117,22 +116,5 @@ async function processVideoForFastStart(inputFilePath: string) {
   console.log("Stderr: ", stderrText);
 
   return outputFilePath;
-}
-
-async function generatePresignedURL(cfg: ApiConfig, key: string, expireTime: number) {
-  const presignedURL = cfg.s3Client.presign(key, { bucket: cfg.s3Bucket, expiresIn: expireTime });
-
-  return presignedURL;
-}
-
-export async function dbVideoToSignedVideo(cfg: ApiConfig, video: Video) {
-  if (!video.videoURL) {
-    return video;
-  } else {
-    const presignedURL = await generatePresignedURL(cfg, video.videoURL, 3600);
-    video.videoURL = presignedURL;
-  }
-
-  return video;
 }
 
